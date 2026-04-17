@@ -486,6 +486,33 @@ myhtopplatsources = $(pcp_platform_sources)
 pcp_htop_SOURCES  = $(myhtopplatprogram) $(myhtopheaders) $(myhtopplatheaders) $(myhtopsources) $(myhtopplatsources)
 endif
 
+# QNX Neutrino
+# ------------
+
+qnx_platform_headers = \
+	generic/gettime.h \
+	generic/hostname.h \
+	generic/uname.h \
+	qnx/Platform.h \
+	qnx/ProcessField.h \
+	qnx/QNXMachine.h \
+	qnx/QNXProcess.h \
+	qnx/QNXProcessTable.h
+
+qnx_platform_sources = \
+	generic/gettime.c \
+	generic/hostname.c \
+	generic/uname.c \
+	qnx/Platform.c \
+	qnx/QNXMachine.c \
+	qnx/QNXProcess.c \
+	qnx/QNXProcessTable.c
+
+if HTOP_QNX
+myhtopplatheaders = $(qnx_platform_headers)
+myhtopplatsources = $(qnx_platform_sources)
+endif
+
 # Unsupported
 # -----------
 
