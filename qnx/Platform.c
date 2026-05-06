@@ -111,8 +111,6 @@ const MeterClass* const Platform_meterTypes[] = {
    &ClockMeter_class,
    &DateMeter_class,
    &DateTimeMeter_class,
-   &LoadAverageMeter_class,
-   &LoadMeter_class,
    &MemoryMeter_class,
    &SwapMeter_class,
    &MemorySwapMeter_class,
@@ -159,19 +157,14 @@ int Platform_getUptime(void) {
    return (int)(now - (time_t) qtime->boot_time);
 }
 
-/* Load averages updated by QNXMachine_updateLoadAvg each scan */
-static double qnx_loadAvg[3] = {0.0, 0.0, 0.0};
-
-void Platform_setLoadAvg(double one, double five, double fifteen) {
-   qnx_loadAvg[0] = one;
-   qnx_loadAvg[1] = five;
-   qnx_loadAvg[2] = fifteen;
-}
+// QNX doesn't have a getloadavg api and we can't calculate that value accurately without building a resource manager for it
+// Approximations within htop will be innacurate so it's better to have no data than invalid data
+void Platform_setLoadAvg(double one, double five, double fifteen) { }
 
 void Platform_getLoadAverage(double* one, double* five, double* fifteen) {
-   *one     = qnx_loadAvg[0];
-   *five    = qnx_loadAvg[1];
-   *fifteen = qnx_loadAvg[2];
+   *one     = -1.0;
+   *five    = -1.0;
+   *fifteen = -1.0;
 }
 
 pid_t Platform_getMaxPid(void) {

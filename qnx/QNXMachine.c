@@ -160,42 +160,6 @@ void Machine_scan(Machine* super) {
    this->cpus[0].systemPercent = 0.0;
 }
 
-/*
- * Update the 1/5/15-minute exponentially-weighted moving averages of
- * runnable thread count.  Called from QNXProcessTable after each scan.
- *
- * The standard decay constants are:
- *   1-min:  T = 60 s
- *   5-min:  T = 300 s
- *   15-min: T = 900 s
- *
- * Formula: load = load * e^(-dt/T) + n * (1 - e^(-dt/T))
- */
-void QNXMachine_updateLoadAvg(QNXMachine* this, unsigned int runnable) {
-   Machine* super = &this->super;
-
-   if (this->prevLoadAvgMs == 0) {
-      /* First sample: seed all three averages with the current runnable count */
-      this->loadAvg[0] = this->loadAvg[1] = this->loadAvg[2] = (double)runnable;
-      this->prevLoadAvgMs = super->monotonicMs;
-      Platform_setLoadAvg(this->loadAvg[0], this->loadAvg[1], this->loadAvg[2]);
-      return;
-   }
-
-   double dt = (double)(super->monotonicMs - this->prevLoadAvgMs) / 1000.0;
-   if (dt <= 0.0)
-      return;
-
-   static const double T[3] = { 60.0, 300.0, 900.0 };
-   for (int i = 0; i < 3; i++) {
-      double decay = exp(-dt / T[i]);
-      this->loadAvg[i] = this->loadAvg[i] * decay + (double)runnable * (1.0 - decay);
-   }
-
-   this->prevLoadAvgMs = super->monotonicMs;
-   Platform_setLoadAvg(this->loadAvg[0], this->loadAvg[1], this->loadAvg[2]);
-}
-
 int Machine_getCPUPhysicalCoreID(const Machine* host, unsigned int id) {
    assert(id < host->existingCPUs);
    (void) host;

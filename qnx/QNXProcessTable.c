@@ -379,6 +379,4 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
    }
 
    closedir(procDir);
-
-   QNXMachine_updateLoadAvg(qhost, runnableThreads);
 }
