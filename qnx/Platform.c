@@ -21,7 +21,6 @@ in the source distribution for its full text.
 #include "DateTimeMeter.h"
 #include "FileDescriptorMeter.h"
 #include "HostnameMeter.h"
-#include "LoadAverageMeter.h"
 #include "Macros.h"
 #include "MemoryMeter.h"
 #include "MemorySwapMeter.h"
@@ -30,7 +29,6 @@ in the source distribution for its full text.
 #include "SysArchMeter.h"
 #include "TasksMeter.h"
 #include "UptimeMeter.h"
-#include "XUtils.h"
 #include "generic/hostname.h"
 #include "generic/uname.h"
 #include "qnx/QNXMachine.h"
@@ -159,7 +157,9 @@ int Platform_getUptime(void) {
 
 // QNX doesn't have a getloadavg api and we can't calculate that value accurately without building a resource manager for it
 // Approximations within htop will be innacurate so it's better to have no data than invalid data
-void Platform_setLoadAvg(double one, double five, double fifteen) { }
+void Platform_setLoadAvg(double one, double five, double fifteen) {
+   (void)one; (void)five; (void)fifteen;
+}
 
 void Platform_getLoadAverage(double* one, double* five, double* fifteen) {
    *one     = -1.0;
@@ -175,8 +175,7 @@ double Platform_setCPUValues(Meter* this, unsigned int cpu) {
    const Machine* host = this->host;
    const QNXMachine* qhost = (const QNXMachine*) host;
 
-   /* cpu == 0 means aggregate; otherwise 1-indexed per-cpu */
-   const CPUData* data = (cpu == 0) ? &qhost->cpus[0] : &qhost->cpus[cpu];
+   const CPUData* data = &qhost->cpus[cpu];
 
    double* v = this->values;
    v[CPU_METER_NICE]      = 0.0;

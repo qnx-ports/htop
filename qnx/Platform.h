@@ -21,7 +21,6 @@ in the source distribution for its full text.
 #include "SignalsPanel.h"
 #include "CommandLine.h"
 #include "generic/gettime.h"
-#include "qnx/QNXProcess.h"
 
 
 extern const ScreenDefaults Platform_defaultScreens[];

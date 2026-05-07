@@ -9,7 +9,6 @@ in the source distribution for its full text.
 
 #include "qnx/QNXMachine.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <math.h>
 #include <math.h>
@@ -79,10 +78,11 @@ Machine* Machine_new(UsersTable* usersTable, uid_t userId) {
    super->existingCPUs = numCPUs;
    super->activeCPUs   = numCPUs;
 
-   /* Allocate CPUData: [0] = aggregate, [1..N] = per-cpu */
    this->cpus = xCalloc(numCPUs + 1, sizeof(CPUData));
-   for (unsigned int i = 0; i <= numCPUs; i++)
+   for (unsigned int i = 0; i < numCPUs + 1; i++) {
       this->cpus[i].frequency = NAN;
+      this->cpus[i].prevIdleNs = 0;
+   }
 
    /* Total RAM (static) */
    super->totalMem = QNXMachine_totalRamKB();
@@ -91,6 +91,8 @@ Machine* Machine_new(UsersTable* usersTable, uid_t userId) {
    super->totalSwap  = 0;
    super->usedSwap   = 0;
    super->cachedSwap = 0;
+
+   this->prevScanTime = 0;
 
    return super;
 }
@@ -108,56 +110,52 @@ bool Machine_isCPUonline(const Machine* host, unsigned int id) {
    return true;
 }
 
-/*
- * Machine_scan is called each htop refresh cycle.
- * Updates memory stats and per-CPU usage via procnto idle-thread clocks.
- *
- * QNX's idle threads live in PID 1 (procnto) with TID = cpu + 1.
- * ClockId(1, tid) returns the POSIX clockid for that thread's CPU time.
- * ClockTime() reads accumulated nanoseconds.  The delta between scans
- * is the idle time; subtracting from elapsed wall time gives busy time.
- * This is the same method used by the QNX top utility.
- */
 void Machine_scan(Machine* super) {
    QNXMachine* this = (QNXMachine*) super;
 
    /* Memory */
    memory_t freeKB = QNXMachine_freeRamKB();
-   this->usedMem = (super->totalMem > freeKB) ? super->totalMem - freeKB : 0;
-
-   /* Per-CPU usage via idle-thread clock deltas */
-   uint64_t elapsedNs = (super->monotonicMs > super->prevMonotonicMs)
-      ? (super->monotonicMs - super->prevMonotonicMs) * 1000000ULL
-      : 0;
-
-   double totalBusy = 0.0;
-
-   for (unsigned int i = 0; i < super->existingCPUs; i++) {
-      /* tid = i + 1 for 0-indexed CPU i */
-      clockid_t cid = ClockId(1, (int)(i + 1));
-      uint64_t idleNs = 0;
-      if (cid != -1)
-         ClockTime(cid, NULL, &idleNs);
-
-      double pct = 0.0;
-      if (elapsedNs > 0 && this->prevIdleNs[i] > 0) {
-         uint64_t idleDelta = (idleNs >= this->prevIdleNs[i])
-            ? idleNs - this->prevIdleNs[i] : 0;
-         double busyFrac = 1.0 - (double)idleDelta / (double)elapsedNs;
-         pct = CLAMP(busyFrac * 100.0, 0.0, 100.0);
-      }
-
-      this->prevIdleNs[i] = idleNs;
-
-      /* cpus[0] = aggregate (filled after loop), cpus[i+1] = per-cpu */
-      this->cpus[i + 1].userPercent   = pct;
-      this->cpus[i + 1].systemPercent = 0.0;
-      totalBusy += pct;
+   this->usedMem = 0;
+   if (super->totalMem > freeKB) {
+      this->usedMem = super->totalMem - freeKB;
    }
 
-   /* Aggregate = average across all CPUs */
-   this->cpus[0].userPercent   = totalBusy / (double)super->existingCPUs;
-   this->cpus[0].systemPercent = 0.0;
+   struct timeval currentTime;
+   gettimeofday(&currentTime, NULL);
+   const uint64_t timeNowNs = (currentTime.tv_sec * 1e6 + currentTime.tv_usec) * 1e3;
+   uint64_t elapsedNs;
+   if (this->prevScanTime == 0) {
+      elapsedNs = Platform_getUptime() * 1e9;
+   }else {
+      elapsedNs = timeNowNs - this->prevScanTime;
+   }
+   this->prevScanTime = timeNowNs;
+
+   struct timespec coreKernelTime;
+   double totalPercent = 0.0;
+   int cpusCounted = 0;
+
+   // cpus is 1 indexed as 0 is used as the average
+   for (unsigned int i = 1; i <= super->existingCPUs; i++) {
+      clockid_t cid = ClockId(KPROCID, i);
+      if (cid == -1) continue;
+      clock_gettime(cid, &coreKernelTime);
+      uint64_t idleNs = coreKernelTime.tv_sec * 1e9 + coreKernelTime.tv_nsec;
+
+      double perCoreTime = 0.0;
+      uint64_t idleDelta = idleNs - this->cpus[i].prevIdleNs;
+      double busyFrac = 1.0 - (double)idleDelta / (double)elapsedNs;
+      perCoreTime = CLAMP(busyFrac * 100.0, 0.0, 100.0);
+
+      this->cpus[i].prevIdleNs = idleNs;
+
+      this->cpus[i].userPercent = perCoreTime;
+      this->cpus[i].systemPercent = 0.0;
+      totalPercent += perCoreTime;
+      cpusCounted +=1;
+   }
+
+   this->cpus[0].userPercent = totalPercent / cpusCounted;
 }
 
 int Machine_getCPUPhysicalCoreID(const Machine* host, unsigned int id) {
