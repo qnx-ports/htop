@@ -235,18 +235,3 @@ void Platform_getBattery(double* percent, ACPresence* isOnAC) {
    *isOnAC   = AC_ERROR;
 }
 
-void Platform_getHostname(char* buffer, size_t size) {
-   Generic_hostname(buffer, size);
-}
-
-static void QNX_fetchRelease(char* buffer, size_t size) {
-   struct utsname u;
-   if (uname(&u) == 0)
-      snprintf(buffer, size, "QNX %s", u.release);
-   else
-      snprintf(buffer, size, "QNX");
-}
-
-const char* Platform_getRelease(void) {
-   return Generic_unameRelease(QNX_fetchRelease);
-}

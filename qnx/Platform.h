@@ -21,6 +21,8 @@ in the source distribution for its full text.
 #include "SignalsPanel.h"
 #include "CommandLine.h"
 #include "generic/gettime.h"
+#include "generic/hostname.h"
+#include "generic/uname.h"
 
 
 extern const ScreenDefaults Platform_defaultScreens[];
@@ -69,9 +71,13 @@ bool Platform_getNetworkIO(NetworkIOData* data);
 
 void Platform_getBattery(double* percent, ACPresence* isOnAC);
 
-void Platform_getHostname(char* buffer, size_t size);
+static inline void Platform_getHostname(char* buffer, size_t size) {
+   Generic_hostname(buffer, size);
+}
 
-const char* Platform_getRelease(void);
+static inline const char* Platform_getRelease(void) {
+   return Generic_uname();
+}
 
 static inline const char* Platform_getFailedState(void) {
    return NULL;
