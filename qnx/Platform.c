@@ -37,9 +37,9 @@ in the source distribution for its full text.
 const ScreenDefaults Platform_defaultScreens[] = {
    {
       .name    = "Main",
-      .columns = "PID USER PRIORITY NICE M_VIRT M_RESIDENT STATE PERCENT_CPU PERCENT_MEM TIME Command",
+      .columns = "PID USER PRIORITY M_VIRT M_RESIDENT STATE PERCENT_CPU PERCENT_MEM Command",
       .sortKey = "PERCENT_CPU",
-   },
+   }
 };
 
 const unsigned int Platform_numberOfDefaultScreens = ARRAYSIZE(Platform_defaultScreens);

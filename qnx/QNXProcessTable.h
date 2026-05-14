@@ -12,6 +12,8 @@ in the source distribution for its full text.
 
 typedef struct QNXProcessTable_ {
    ProcessTable super;
+
+   uint64_t lastScanTime;
 } QNXProcessTable;
 
 #endif /* HEADER_QNXProcessTable */
