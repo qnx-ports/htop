@@ -24,6 +24,7 @@ in the source distribution for its full text.
 #include <sys/procfs.h>
 #include <sys/neutrino.h>
 #include <sys/states.h>
+#include <sys/memmsg.h>
 
 #include "Machine.h"
 #include "Object.h"
@@ -91,45 +92,6 @@ static ProcessState QNXProcessTable_threadStateToProcessState(unsigned int state
    }
 }
 
-/*
- * Parse /proc/<pid>/vmstat to get m_virt (map_size) and m_resident (rss).
- * Values in the file are in units of system pages; we convert to kB.
- */
-static void QNXProcessTable_readVmstat(pid_t pid, long pageSize, memory_t* virt_kb, memory_t* rss_kb) {
-   char path[PATH_MAX + 1];
-   snprintf(path, sizeof(path), "/proc/%d/vmstat", (int)pid);
-
-   FILE* f = fopen(path, "r");
-   if (!f)
-      return;
-
-   /* Default: unknown */
-   *virt_kb = 0;
-   *rss_kb  = 0;
-
-   char line[128];
-   while (fgets(line, sizeof(line), f)) {
-      unsigned long long val_hex = 0;
-      char key[64];
-      /* Lines look like: as_stats.map_size=0x963 (9.386MB) */
-      if (sscanf(line, "%63[^=]=%lli", key, (long long*)&val_hex) == 2 ||
-          sscanf(line, "%63[^=]=0x%llx", key, &val_hex) == 2) {
-         /* re-parse correctly */
-         if (sscanf(line, "%63[^=]=0x%llx", key, &val_hex) == 2 ||
-             sscanf(line, "%63[^=]=%lli", key, (long long*)&val_hex) == 2) {
-            if (strcmp(key, "as_stats.map_size") == 0) {
-               /* value is in pages */
-               *virt_kb = (memory_t)(val_hex * (unsigned long long)pageSize / 1024);
-            } else if (strcmp(key, "as_stats.rss") == 0) {
-               *rss_kb = (memory_t)(val_hex * (unsigned long long)pageSize / 1024);
-            }
-         }
-      }
-   }
-
-   fclose(f);
-}
-
 void ProcessTable_goThroughEntries(ProcessTable* super) {
    QNXProcessTable *this = (QNXProcessTable*) super;
    QNXMachine* qhost = (QNXMachine*) super->super.host;
@@ -168,7 +130,16 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       procfs_status status;
       memset(&status, 0, sizeof(status));
       status.tid = 1;
-      devctl(fd, DCMD_PROC_TIDSTATUS, &status, sizeof(status), NULL);
+      if (devctl(fd, DCMD_PROC_TIDSTATUS, &status, sizeof(status), NULL) != EOK) {
+         close(fd);
+         continue;
+      }
+
+      procfs_asinfo asinfo;
+      if (devctl(fd, DCMD_PROC_ASINFO, &asinfo, sizeof(asinfo), NULL) != EOK) {
+         close(fd);
+         continue;
+      }
       close(fd);
 
       bool preExisting;
@@ -195,6 +166,8 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       proc->st_uid = info.uid;
       proc->priority = (int) status.priority;
       proc->processor = (int) status.last_cpu;
+      proc->m_virt = asinfo.as_used / 1024;
+      proc->m_resident = asinfo.rss / 1024;
 
       // Process state - use the first thread's state
       proc->state = QNXProcessTable_threadStateToProcessState(status.state);
@@ -219,14 +192,10 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       proc->time = (unsigned long long)(cpuTimeNs / 1e6);
 
       // Memory
-      memory_t virt_kb = 0, rss_kb = 0;
-      QNXProcessTable_readVmstat(pid, qhost->pageSize, &virt_kb, &rss_kb);
-      proc->m_virt = virt_kb;
-      proc->m_resident = rss_kb;
 
       // TODO memory
 
-      if (host->totalMem > 0) proc->percent_mem = (double)rss_kb / (double)host->totalMem * 100.0;
+      if (host->totalMem > 0) proc->percent_mem = (double)asinfo.rss / (double)host->totalMem * 100.0;
       else proc->percent_mem = 0.0;
 
       // User name
