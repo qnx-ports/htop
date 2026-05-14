@@ -140,6 +140,17 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
          close(fd);
          continue;
       }
+      //
+      // we need to define this struct since devctl fills the hdr field and then adds the path after.
+      struct {
+         procfs_debuginfo hdr;
+         char             path[PATH_MAX];
+      } mapdebug;
+      // dbg.hdr.vaddr = info.base_address;
+      if (devctl(fd, DCMD_PROC_MAPDEBUG_BASE, &mapdebug, sizeof(mapdebug), NULL) != EOK) {
+         continue;
+         close(fd);
+      }
       close(fd);
 
       bool preExisting;
@@ -192,9 +203,6 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       proc->time = (unsigned long long)(cpuTimeNs / 1e6);
 
       // Memory
-
-      // TODO memory
-
       if (host->totalMem > 0) proc->percent_mem = (double)asinfo.rss / (double)host->totalMem * 100.0;
       else proc->percent_mem = 0.0;
 
@@ -202,38 +210,7 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       proc->user = UsersTable_getRef(host->usersTable, proc->st_uid);
 
       // Command line
-      char cmdlinePath[PATH_MAX+1];
-      cmdlinePath[PATH_MAX] = '\0';
-      snprintf(cmdlinePath, PATH_MAX, "/proc/%d/cmdline", pid);
-      FILE *cmdlineFp = fopen(cmdlinePath, "r");
-      char *cmdline = NULL;
-      if (cmdlineFp != NULL) {
-         cmdline = String_readLine(cmdlineFp);
-      }
-
-      char exefilePath[PATH_MAX+1];
-      exefilePath[PATH_MAX] = '\0';
-      snprintf(exefilePath, PATH_MAX, "/proc/%d/exefile", pid);
-      FILE *exefileFp = fopen(exefilePath, "r");
-      char *exefile = NULL;
-      if (exefileFp != NULL) {
-         exefile = String_readLine(exefileFp);
-      }
-
-
-      if (cmdline) {
-         Process_updateCmdline(proc, cmdline, 0, strlen(cmdline));
-      } else if (exefile) {
-         Process_updateCmdline(proc, exefile, 0, strlen(exefile));
-      } else {
-         char pidcmdline[32];
-         snprintf(pidcmdline, sizeof(pidcmdline), "<%d>", pid);
-         Process_updateCmdline(proc, pidcmdline, 0, strlen(pidcmdline));
-      }
-
-      if (exefile) {
-         Process_updateExe(proc, exefile);
-      }
+      Process_updateCmdline(proc, mapdebug.hdr.path, 0, strlen(mapdebug.hdr.path));
 
      // we need to define this struct since devctl fills the hdr field and then adds the path after.
      struct {
