@@ -15,6 +15,9 @@ in the source distribution for its full text.
 #include <unistd.h>
 #include <sys/syspage.h>
 #include <sys/utsname.h>
+#include <sys/resource.h>
+
+#include "qnx/QNXMachine.h"
 
 #include "CPUMeter.h"
 #include "ClockMeter.h"
@@ -31,7 +34,6 @@ in the source distribution for its full text.
 #include "UptimeMeter.h"
 #include "generic/hostname.h"
 #include "generic/uname.h"
-#include "qnx/QNXMachine.h"
 
 
 const ScreenDefaults Platform_defaultScreens[] = {
@@ -147,12 +149,11 @@ void Platform_setBindings(Htop_Action* keys) {
 }
 
 int Platform_getUptime(void) {
-   struct qtime_entry* qtime = SYSPAGE_ENTRY(qtime);
-   if (!qtime)
+   struct timespec tp;
+   if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
       return -1;
 
-   time_t now = time(NULL);
-   return (int)(now - (time_t) qtime->boot_time);
+   return tp.tv_sec;
 }
 
 // QNX doesn't have a getloadavg api and we can't calculate that value accurately without building a resource manager for it
@@ -216,8 +217,14 @@ FileLocks_ProcessData* Platform_getProcessLocks(pid_t pid) {
 }
 
 void Platform_getFileDescriptors(double* used, double* max) {
-   *used = NAN;
-   *max  = NAN;
+   // We can technically get one processes open connections by enumerating ConnectServerInfo(), however we need the total number of system fds
+   // We might also have issues with double-counting
+   // There is sysctl kern.openfiles, however that number is smaller than it should be, indicating that there are somethings it's not counting
+   *used = __curr_num_fds;
+
+   struct rlimit rlp;
+   if (getrlimit(RLIMIT_NOFILE, &rlp) == -1) *max = NAN;
+   else *max = (double) rlp.rlim_cur;
 }
 
 bool Platform_getDiskIO(DiskIOData* data) {

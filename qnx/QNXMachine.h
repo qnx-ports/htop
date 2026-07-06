@@ -17,6 +17,10 @@ in the source distribution for its full text.
 
 #define KPROCID 1
 
+// Scuffed counter for the number of system fds, since we have to enumerate every proc, we'll just accumulate them here
+// This is to be read by Process_getFileDescriptors()
+extern uint32_t __curr_num_fds;
+
 typedef struct CPUData_ {
    double userPercent;
    double systemPercent;

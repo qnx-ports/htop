@@ -18,6 +18,8 @@ typedef struct QNXProcess_ {
    /* Accumulated CPU time in nanoseconds (utime + stime from debug_process_t) */
    uint64_t utime;
    uint64_t stime;
+
+   uint32_t num_fds;
 } QNXProcess;
 
 

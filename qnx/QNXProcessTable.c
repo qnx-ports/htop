@@ -109,6 +109,7 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       return;
 
 
+   uint32_t acc_fds = 0;
    struct dirent* ent;
    while ((ent = readdir(procDir)) != NULL) {
       if (!isdigit((unsigned char)ent->d_name[0])) continue;
@@ -179,6 +180,8 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       proc->processor = (int) status.last_cpu;
       proc->m_virt = asinfo.as_used / 1024;
       proc->m_resident = asinfo.rss / 1024;
+      qp->num_fds = info.num_fdcons;
+      acc_fds += info.num_fdcons;
 
       // Process state - use the first thread's state
       proc->state = QNXProcessTable_threadStateToProcessState(status.state);
@@ -250,9 +253,8 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       if (!preExisting) {
          ProcessTable_add(super, proc);
       }
-
-      close(fd);
    }
+   __curr_num_fds = acc_fds;
 
    closedir(procDir);
 }

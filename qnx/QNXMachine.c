@@ -23,6 +23,7 @@ in the source distribution for its full text.
 #include "XUtils.h"
 #include "qnx/Platform.h"
 
+uint32_t __curr_num_fds = 0;
 
 /*
  * Compute total physical RAM by summing "ram" entries in syspage asinfo.
