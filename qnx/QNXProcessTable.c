@@ -150,8 +150,8 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       } mapdebug = {0};
       // dbg.hdr.vaddr = info.base_address;
       if (devctl(fd, DCMD_PROC_MAPDEBUG_BASE, &mapdebug, sizeof(mapdebug), NULL) != EOK) {
-         continue;
          close(fd);
+         continue;
       }
       close(fd);
 
