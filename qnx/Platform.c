@@ -16,6 +16,15 @@ in the source distribution for its full text.
 #include <sys/syspage.h>
 #include <sys/utsname.h>
 #include <sys/resource.h>
+#if defined(HAVE_SYS_FS_STATS_H) && defined(HAVE_GPT_H)
+#include <sys/dcmd_blk.h>
+#include <sys/fs_stats.h>
+#endif
+#ifdef HAVE_IFADDRS_H
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#endif
 
 #include "qnx/QNXMachine.h"
 
@@ -112,13 +121,16 @@ const MeterClass* const Platform_meterTypes[] = {
    &DateMeter_class,
    &DateTimeMeter_class,
    &MemoryMeter_class,
-   &SwapMeter_class,
-   &MemorySwapMeter_class,
    &TasksMeter_class,
    &UptimeMeter_class,
    &SecondsUptimeMeter_class,
-   &BatteryMeter_class,
    &HostnameMeter_class,
+#if defined(HAVE_IFADDRS_H)
+   &NetworkIOMeter_class,
+#endif
+#if defined(HAVE_SYS_FS_STATS_H) && defined(HAVE_GPT_H)
+   &DiskIORateMeter_class,
+#endif
    &SysArchMeter_class,
    &AllCPUsMeter_class,
    &AllCPUs2Meter_class,
@@ -153,7 +165,7 @@ int Platform_getUptime(void) {
    if (clock_gettime(CLOCK_MONOTONIC, &tp) == -1)
       return -1;
 
-   return tp.tv_sec;
+   return (int)tp.tv_sec;
 }
 
 // QNX doesn't have a getloadavg api and we can't calculate that value accurately without building a resource manager for it
@@ -228,13 +240,66 @@ void Platform_getFileDescriptors(double* used, double* max) {
 }
 
 bool Platform_getDiskIO(DiskIOData* data) {
+#if defined(HAVE_SYS_FS_STATS_H) && defined(HAVE_GPT_H)
+   int disk=0;
+   char device_path[PATH_MAX];
+   int fd;
+   data->totalBytesRead = 0;
+   data->totalBytesWritten = 0;
+   data->numDisks = 0;
+   data->totalMsTimeSpend = 0;
+   while ((sprintf(device_path, "/dev/hd%d", disk)), (fd = open(device_path, O_ACCMODE)), disk++, fd != -1) {
+      struct fs_stats fst;
+      if (devctl(fd, DCMD_FSYS_STATISTICS, &fst,  sizeof(fst), NULL) != EOK) {
+         continue;
+      }
+
+      data->totalBytesRead += fst.s_buf_rphys_bytes;
+      data->totalBytesWritten += fst.s_buf_wphys_bytes;
+      data->numDisks++;
+      // I have no idea how to get that information, it will result in usage% not rendering
+      data->totalMsTimeSpend = 0;
+
+      close(fd);
+   }
+   return true;
+
+#else
    (void) data;
    return false;
+#endif
 }
 
 bool Platform_getNetworkIO(NetworkIOData* data) {
+#ifdef HAVE_IFADDRS_H
+   // netbsd implementation
+   struct ifaddrs* ifaddrs = NULL;
+
+   if (getifaddrs(&ifaddrs) != 0)
+      return false;
+
+   for (const struct ifaddrs* ifa = ifaddrs; ifa; ifa = ifa->ifa_next) {
+      if (!ifa->ifa_addr)
+         continue;
+      if (ifa->ifa_addr->sa_family != AF_LINK)
+         continue;
+      if (ifa->ifa_flags & IFF_LOOPBACK)
+         continue;
+
+      const struct if_data* ifd = (const struct if_data*)ifa->ifa_data;
+
+      data->bytesReceived += ifd->ifi_ibytes;
+      data->packetsReceived += ifd->ifi_ipackets;
+      data->bytesTransmitted += ifd->ifi_obytes;
+      data->packetsTransmitted += ifd->ifi_opackets;
+   }
+
+   freeifaddrs(ifaddrs);
+   return true;
+#else
    (void) data;
    return false;
+#endif
 }
 
 void Platform_getBattery(double* percent, ACPresence* isOnAC) {
