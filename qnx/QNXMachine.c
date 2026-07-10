@@ -138,22 +138,25 @@ void Machine_scan(Machine* super) {
 
    // cpus is 1 indexed as 0 is used as the average
    for (unsigned int i = 1; i <= super->existingCPUs; i++) {
-      clockid_t cid = ClockId(KPROCID, i);
-      if (cid == -1) continue;
-      clock_gettime(cid, &coreKernelTime);
-      uint64_t idleNs = coreKernelTime.tv_sec * 1e9 + coreKernelTime.tv_nsec;
+     // Tracking kernel busy time is close enough to system idle time since that
+     // time is reaped by the scheduler
+     clockid_t cid = ClockId(KPROCID, i);
+     if (cid == -1)
+       continue;
+     clock_gettime(cid, &coreKernelTime);
+     uint64_t idleNs = coreKernelTime.tv_sec * 1e9 + coreKernelTime.tv_nsec;
 
-      double perCoreTime = 0.0;
-      uint64_t idleDelta = idleNs - this->cpus[i].prevIdleNs;
-      double busyFrac = 1.0 - (double)idleDelta / (double)elapsedNs;
-      perCoreTime = CLAMP(busyFrac * 100.0, 0.0, 100.0);
+     double perCoreTime = 0.0;
+     uint64_t idleDelta = idleNs - this->cpus[i].prevIdleNs;
+     double busyFrac = 1.0 - (double)idleDelta / (double)elapsedNs;
+     perCoreTime = CLAMP(busyFrac * 100.0, 0.0, 100.0);
 
-      this->cpus[i].prevIdleNs = idleNs;
+     this->cpus[i].prevIdleNs = idleNs;
 
-      this->cpus[i].userPercent = perCoreTime;
-      this->cpus[i].systemPercent = 0.0;
-      totalPercent += perCoreTime;
-      cpusCounted +=1;
+     this->cpus[i].userPercent = perCoreTime;
+     this->cpus[i].systemPercent = 0.0;
+     totalPercent += perCoreTime;
+     cpusCounted += 1;
    }
 
    this->cpus[0].userPercent = totalPercent / cpusCounted;

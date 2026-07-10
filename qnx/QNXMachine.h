@@ -24,28 +24,25 @@ extern uint32_t __curr_num_fds;
 typedef struct CPUData_ {
    double userPercent;
    double systemPercent;
-   double totalPercent;   /* combined for display */
-   double frequency;      /* MHz, or NAN if unknown */
+   double totalPercent;
+   double frequency;
    uint64_t prevIdleNs;
 } CPUData;
 
 typedef struct QNXMachine_ {
    Machine super;
 
-   memory_t usedMem;      /* used physical memory in kB */
-   memory_t cachedMem;    /* (unused on QNX, kept for API compat) */
+   memory_t usedMem;
+   memory_t cachedMem;
 
-   /* Per-CPU accounting */
-   CPUData* cpus;         /* [0] = aggregate, [1..N] = per-cpu */
+   CPUData* cpus;
 
-   /* Load averages: 1, 5, and 15 minute exponential moving averages of
-    * the runnable thread count, computed on each scan. */
    double loadAvg[3];
-   uint64_t prevLoadAvgMs; /* monotonicMs at last load-average update */
+   uint64_t prevLoadAvgMs;
 
-   long pageSize;         /* system page size in bytes */
+   long pageSize;
 
    uint64_t prevScanTime;
 } QNXMachine;
 
-#endif /* HEADER_QNXMachine */
+#endif

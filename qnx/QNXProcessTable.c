@@ -121,14 +121,14 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       int fd = open(ctlpath, O_RDONLY);
       if (fd < 0) continue;
 
-      procfs_info info;
+      procfs_info info = {0};
       memset(&info, 0, sizeof(info));
       if (devctl(fd, DCMD_PROC_INFO, &info, sizeof(info), NULL) != EOK) {
          close(fd);
          continue;
       }
 
-      procfs_status status;
+      procfs_status status = {0};
       memset(&status, 0, sizeof(status));
       status.tid = 1;
       if (devctl(fd, DCMD_PROC_TIDSTATUS, &status, sizeof(status), NULL) != EOK) {
@@ -136,17 +136,17 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
          continue;
       }
 
-      procfs_asinfo asinfo;
+      procfs_asinfo asinfo = {0};
       if (devctl(fd, DCMD_PROC_ASINFO, &asinfo, sizeof(asinfo), NULL) != EOK) {
          close(fd);
          continue;
       }
-      //
+
       // we need to define this struct since devctl fills the hdr field and then adds the path after.
       struct {
          procfs_debuginfo hdr;
          char             path[PATH_MAX];
-      } mapdebug;
+      } mapdebug = {0};
       // dbg.hdr.vaddr = info.base_address;
       if (devctl(fd, DCMD_PROC_MAPDEBUG_BASE, &mapdebug, sizeof(mapdebug), NULL) != EOK) {
          continue;
@@ -185,6 +185,9 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
 
       // Process state - use the first thread's state
       proc->state = QNXProcessTable_threadStateToProcessState(status.state);
+      if (info.flags & _NTO_PF_ZOMBIE) {
+         proc->state = ZOMBIE;
+      }
 
       // CPU time accounting
       uint64_t cpuTimeNs = info.utime + info.stime;
@@ -194,7 +197,7 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
 
       if (preExisting && elapsedTime > 0) {
          uint64_t deltaCpu = cpuTimeNs - prevCpuTime;
-         float percent = (float)deltaCpu / (float)elapsedTime * 100.0f;
+         float percent = ((float)deltaCpu / (float)elapsedTime) * 100.0f;
          proc->percent_cpu = percent;
       } else {
          proc->percent_cpu = 0;
@@ -206,7 +209,7 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       proc->time = (unsigned long long)(cpuTimeNs / 1e6);
 
       // Memory
-      if (host->totalMem > 0) proc->percent_mem = (double)asinfo.rss / (double)host->totalMem * 100.0;
+      if (host->totalMem > 0) proc->percent_mem = ((double)asinfo.rss / (double)host->totalMem) * 100.0;
       else proc->percent_mem = 0.0;
 
       // User name
@@ -215,21 +218,13 @@ void ProcessTable_goThroughEntries(ProcessTable* super) {
       // Command line
       Process_updateCmdline(proc, mapdebug.hdr.path, 0, strlen(mapdebug.hdr.path));
 
-     // we need to define this struct since devctl fills the hdr field and then adds the path after.
-     struct {
-         procfs_debuginfo hdr;
-         char             path[PATH_MAX + 1];
-      } dbg;
-      // dbg.hdr.vaddr = info.base_address;
-      if (devctl(fd, DCMD_PROC_MAPDEBUG_BASE, &dbg, sizeof(dbg), NULL) == EOK) {
-         if (dbg.path[0]) {
-            Process_updateComm(proc, dbg.path);
-         }else {
-            char comm[64];
-            comm[63] = '\0';
-            snprintf(comm, 63, "[%d]", (int)pid);
-            Process_updateComm(proc, comm);
-         }
+      if (mapdebug.path[0]) {
+         Process_updateComm(proc, mapdebug.path);
+      }else {
+         char comm[64];
+         comm[63] = '\0';
+         snprintf(comm, 63, "[%d]", (int)pid);
+         Process_updateComm(proc, comm);
       }
 
       // Show / hide
