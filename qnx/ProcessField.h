@@ -2,7 +2,6 @@
 #define HEADER_QNXProcessField
 /*
 htop - qnx/ProcessField.h
-(C) 2026 QNXe team
 (C) 2024 htop dev team
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
