@@ -60,6 +60,10 @@ solaris*)
    my_htop_platform=solaris
    AC_DEFINE([HTOP_SOLARIS], [], [Building for Solaris.])
    ;;
+nto*)
+   my_htop_platform=qnx
+   AC_DEFINE([HTOP_QNX], [], [Building for QNX Neutrino.])
+   ;;
 *)
    my_htop_platform=unsupported
    AC_DEFINE([HTOP_UNSUPPORTED], [], [Building for an unsupported platform.])
@@ -227,6 +231,13 @@ if test "$my_htop_platform" = darwin; then
    AC_CHECK_MEMBERS([struct vm_statistics64.external_page_count], [], [], [[#include <mach/mach_host.h>]])
 
    AC_CHECK_DECLS([kIOMainPortDefault], [], [], [[#include <IOKit/IOKitLib.h>]])
+fi
+
+if test "$my_htop_platform" = qnx; then
+    # Enable optional meters if available
+    AC_CHECK_HEADERS([sys/fs_stats.h])
+    AC_CHECK_HEADERS([gpt.h])
+    AC_CHECK_HEADERS([ifaddrs.h], [LDFLAGS="$LDFLAGS -lsocket"])
 fi
 
 # ----------------------------------------------------------------------
@@ -1840,6 +1851,7 @@ AM_CONDITIONAL([HTOP_OPENBSD], [test "$my_htop_platform" = openbsd])
 AM_CONDITIONAL([HTOP_DARWIN], [test "$my_htop_platform" = darwin])
 AM_CONDITIONAL([HTOP_SOLARIS], [test "$my_htop_platform" = solaris])
 AM_CONDITIONAL([HTOP_PCP], [test "$my_htop_platform" = pcp])
+AM_CONDITIONAL([HTOP_QNX], [test "$my_htop_platform" = qnx])
 AM_CONDITIONAL([HTOP_UNSUPPORTED], [test "$my_htop_platform" = unsupported])
 
 AC_SUBST(my_htop_platform)
