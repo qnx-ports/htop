@@ -60,10 +60,6 @@ solaris*)
    my_htop_platform=solaris
    AC_DEFINE([HTOP_SOLARIS], [], [Building for Solaris.])
    ;;
-nto*)
-   my_htop_platform=qnx
-   AC_DEFINE([HTOP_QNX], [], [Building for QNX Neutrino.])
-   ;;
 *)
    my_htop_platform=unsupported
    AC_DEFINE([HTOP_UNSUPPORTED], [], [Building for an unsupported platform.])
@@ -1844,7 +1840,6 @@ AM_CONDITIONAL([HTOP_OPENBSD], [test "$my_htop_platform" = openbsd])
 AM_CONDITIONAL([HTOP_DARWIN], [test "$my_htop_platform" = darwin])
 AM_CONDITIONAL([HTOP_SOLARIS], [test "$my_htop_platform" = solaris])
 AM_CONDITIONAL([HTOP_PCP], [test "$my_htop_platform" = pcp])
-AM_CONDITIONAL([HTOP_QNX], [test "$my_htop_platform" = qnx])
 AM_CONDITIONAL([HTOP_UNSUPPORTED], [test "$my_htop_platform" = unsupported])
 
 AC_SUBST(my_htop_platform)
