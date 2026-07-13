@@ -2,6 +2,7 @@
 #define HEADER_QNXProcessField
 /*
 htop - qnx/ProcessField.h
+Copyright (c) 2026, BlackBerry Limited. All rights reserved.
 (C) 2024 htop dev team
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.

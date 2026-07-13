@@ -3,6 +3,7 @@
 /*
 htop - qnx/QNXProcess.h
 (C) 2024 htop dev team
+Copyright (c) 2026, BlackBerry Limited. All rights reserved.
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
