@@ -237,7 +237,7 @@ if test "$my_htop_platform" = qnx; then
     # Enable optional meters if available
     AC_CHECK_HEADERS([sys/fs_stats.h])
     AC_CHECK_HEADERS([gpt.h])
-    AC_CHECK_HEADERS([ifaddrs.h], [LDFLAGS="$LDFLAGS -lsocket"])
+    AC_CHECK_HEADERS([ifaddrs.h], [LIBS="$LIBS -lsocket"])
 fi
 
 # ----------------------------------------------------------------------
